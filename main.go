@@ -7,6 +7,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"slices"
 )
 
 func root(w http.ResponseWriter, r *http.Request) {
@@ -24,11 +25,23 @@ func root(w http.ResponseWriter, r *http.Request) {
 
 func codesrv(w http.ResponseWriter, r *http.Request) {
 	cleanPath := path.Clean(r.URL.Path)
+
+	var pathComponents []string
+
 	dir, file := path.Split(cleanPath)
-	_ = dir
-	fullpath := filepath.Join(`C:\Users\Icosatess\Source\codesrv`, file)
+	pathComponents = append(pathComponents, file)
+	for dir != "/codesrv/" {
+		dir, file = path.Split(dir[:len(dir)-1])
+		pathComponents = append(pathComponents, file)
+	}
+	pathComponents = append(pathComponents, `C:\Users\Icosatess\Source\codesrv`)
+	slices.Reverse(pathComponents)
+	fullpath := filepath.Join(pathComponents...)
+	log.Printf("the path is: %v", pathComponents)
+
 	f, ferr := os.Open(fullpath)
 	if ferr != nil {
+		// TODO: handle file not found
 		panic(ferr)
 	}
 	defer f.Close()

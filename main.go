@@ -1,7 +1,7 @@
 package main
 
 import (
-	"fmt"
+	"html/template"
 	"io"
 	"log"
 	"net/http"
@@ -10,6 +10,20 @@ import (
 	"path/filepath"
 	"slices"
 )
+
+type directoryEntryInfo struct {
+	FullPath string
+	Name     string
+}
+
+const directoryListingTemplate = `
+<!DOCTYPE html>
+<title>Code server</title>
+<ul>
+{{range .}}
+<li><a href="{{.FullPath}}">{{.Name}}</a>
+{{end}}
+</ul>`
 
 func root(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(`
@@ -53,19 +67,23 @@ func (h workspaceFolderHandler) ServeHTTP(w http.ResponseWriter, r *http.Request
 		if deserr != nil {
 			panic(deserr)
 		}
-		w.Write([]byte(`
-		<!DOCTYPE html>
-		<title>Code server</title>
-		<ul>
-		`))
+		t, terr := template.New("directoryEntryTemplate").Parse(directoryListingTemplate)
+		if terr != nil {
+			panic(terr)
+		}
+		var deis []directoryEntryInfo
 		for _, de := range des {
 			currentPath := r.URL.Path
 			deName := de.Name()
 			deFullPath := path.Join(currentPath, deName)
-			// TODO: XSS can happen here a lot
-			w.Write([]byte(fmt.Sprintf(`<li><a href="%s">%s</a>`, deFullPath, deName)))
+			deis = append(deis, directoryEntryInfo{
+				FullPath: deFullPath,
+				Name:     deName,
+			})
 		}
-		w.Write([]byte("</ul>"))
+		if err := t.Execute(w, deis); err != nil {
+			panic(err)
+		}
 	} else {
 		f, ferr := os.Open(fullpath)
 		if ferr != nil {

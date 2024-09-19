@@ -23,21 +23,22 @@ func root(w http.ResponseWriter, r *http.Request) {
 	`))
 }
 
-func codesrv(w http.ResponseWriter, r *http.Request) {
+type workspaceFolderHandler string
+
+func (h workspaceFolderHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	cleanPath := path.Clean(r.URL.Path)
 
 	var pathComponents []string
 
 	dir, file := path.Split(cleanPath)
 	pathComponents = append(pathComponents, file)
-	for dir != "/codesrv/" {
+	for dir != "/"+string(h)+"/" {
 		dir, file = path.Split(dir[:len(dir)-1])
 		pathComponents = append(pathComponents, file)
 	}
-	pathComponents = append(pathComponents, `C:\Users\Icosatess\Source\codesrv`)
+	pathComponents = append(pathComponents, string(h), `C:\Users\Icosatess\Source`)
 	slices.Reverse(pathComponents)
 	fullpath := filepath.Join(pathComponents...)
-	log.Printf("the path is: %v", pathComponents)
 
 	f, ferr := os.Open(fullpath)
 	if ferr != nil {
@@ -52,10 +53,10 @@ func codesrv(w http.ResponseWriter, r *http.Request) {
 
 func main() {
 	http.HandleFunc("/", root)
-	http.Handle("/minimapui/", http.FileServer(http.Dir(`C:\Users\Icosatess\Source`)))
-	http.Handle("/minimapsrv/", http.FileServer(http.Dir(`C:\Users\Icosatess\Source`)))
-	http.Handle("/minimapext/", http.FileServer(http.Dir(`C:\Users\Icosatess\Source`)))
-	http.HandleFunc("/codesrv/", codesrv)
+	http.Handle("/minimapui/", workspaceFolderHandler("minimapui"))
+	http.Handle("/minimapsrv/", workspaceFolderHandler("minimapsrv"))
+	http.Handle("/minimapext/", workspaceFolderHandler("minimapext"))
+	http.Handle("/codesrv/", workspaceFolderHandler("codesrv"))
 
 	// TODO: serve as plain text
 	// TODO: add a disallow-list for dotfiles and other stuff viewers shouldn't see

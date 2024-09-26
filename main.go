@@ -20,17 +20,23 @@ type directoryEntryInfo struct {
 	Name     string
 }
 
+type directoryListingData struct {
+	Path    string
+	Entries []directoryEntryInfo
+}
+
 const directoryListingTemplate = `
 <!DOCTYPE html>
 <meta charset="UTF-8">
-<title>Code server</title>
+<title>Icosatess</title>
 <style>
 :root {
 	color-scheme: light dark;
 }
 </style>
+<h1>{{.Path}}</h1>
 <ul>
-{{range .}}
+{{range .Entries}}
 <li><a href="{{.FullPath}}">{{.Name}}</a>
 {{end}}
 </ul>`
@@ -38,12 +44,13 @@ const directoryListingTemplate = `
 const rootIndex = `
 <!DOCTYPE html>
 <meta charset="UTF-8">
-<title>Code server</title>
+<title>Icosatess</title>
 <style>
 :root {
 	color-scheme: light dark;
 }
 </style>
+<h1>Icosatess’s code</h1>
 <ul>
 <li><a href="/minimapui">minimapui</a>
 <li><a href="/minimapsrv">minimapsrv</a>
@@ -100,7 +107,10 @@ func (h workspaceFolderHandler) ServeHTTP(w http.ResponseWriter, r *http.Request
 				Name:     deName,
 			})
 		}
-		if err := t.Execute(w, deis); err != nil {
+		if err := t.Execute(w, directoryListingData{
+			Path:    cleanPath,
+			Entries: deis,
+		}); err != nil {
 			panic(err)
 		}
 	} else {

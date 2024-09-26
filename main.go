@@ -63,9 +63,7 @@ func root(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(rootIndex))
 }
 
-type workspaceFolderHandler string
-
-func (h workspaceFolderHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func serveWorkspaceFolder(w http.ResponseWriter, r *http.Request) {
 	cleanPath := path.Clean(r.URL.Path)
 
 	var pathComponents []string
@@ -154,10 +152,10 @@ func (h workspaceFolderHandler) ServeHTTP(w http.ResponseWriter, r *http.Request
 
 func main() {
 	http.HandleFunc("/", root)
-	http.Handle("/minimapui/", workspaceFolderHandler("minimapui"))
-	http.Handle("/minimapsrv/", workspaceFolderHandler("minimapsrv"))
-	http.Handle("/minimapext/", workspaceFolderHandler("minimapext"))
-	http.Handle("/codesrv/", workspaceFolderHandler("codesrv"))
+	http.HandleFunc("/minimapui/", serveWorkspaceFolder)
+	http.HandleFunc("/minimapsrv/", serveWorkspaceFolder)
+	http.HandleFunc("/minimapext/", serveWorkspaceFolder)
+	http.HandleFunc("/codesrv/", serveWorkspaceFolder)
 
 	// TODO: serve as plain text
 	// TODO: add a disallow-list for dotfiles and other stuff viewers shouldn't see

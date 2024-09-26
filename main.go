@@ -18,7 +18,13 @@ type directoryEntryInfo struct {
 
 const directoryListingTemplate = `
 <!DOCTYPE html>
+<meta charset="UTF-8">
 <title>Code server</title>
+<style>
+:root {
+	color-scheme: light dark;
+}
+</style>
 <ul>
 {{range .}}
 <li><a href="{{.FullPath}}">{{.Name}}</a>
@@ -28,7 +34,13 @@ const directoryListingTemplate = `
 func root(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(`
 	<!DOCTYPE html>
+	<meta charset="UTF-8">
 	<title>Code server</title>
+	<style>
+	:root {
+	  color-scheme: light dark;
+	}
+	</style>
 	<ul>
 	<li><a href="/minimapui">minimapui</a>
 	<li><a href="/minimapsrv">minimapsrv</a>

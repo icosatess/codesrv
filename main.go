@@ -9,6 +9,10 @@ import (
 	"path"
 	"path/filepath"
 	"slices"
+
+	"github.com/alecthomas/chroma/v2/formatters"
+	"github.com/alecthomas/chroma/v2/lexers"
+	"github.com/alecthomas/chroma/v2/styles"
 )
 
 type directoryEntryInfo struct {
@@ -105,10 +109,36 @@ func (h workspaceFolderHandler) ServeHTTP(w http.ResponseWriter, r *http.Request
 			// TODO: handle file not found
 			panic(ferr)
 		}
-		defer f.Close()
+		text, textErr := io.ReadAll(f)
+		if textErr != nil {
+			panic(textErr)
+		}
+		if err := f.Close(); err != nil {
+			panic(err)
+		}
 
-		w.Header().Set("Content-Type", "text/plain")
-		io.Copy(w, f)
+		lexer := lexers.Match(fullpath)
+		if lexer == nil {
+			lexer = lexers.Fallback
+		}
+
+		style := styles.Get("github-dark")
+		if style == nil {
+			style = styles.Fallback
+		}
+		formatter := formatters.Get("html")
+		if formatter == nil {
+			formatter = formatters.Fallback
+		}
+
+		iterator, iteratorErr := lexer.Tokenise(nil, string(text))
+		if iteratorErr != nil {
+			panic(iteratorErr)
+		}
+
+		if err := formatter.Format(w, style, iterator); err != nil {
+			panic(err)
+		}
 	}
 }
 

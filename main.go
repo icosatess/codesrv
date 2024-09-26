@@ -31,23 +31,25 @@ const directoryListingTemplate = `
 {{end}}
 </ul>`
 
+const rootIndex = `
+<!DOCTYPE html>
+<meta charset="UTF-8">
+<title>Code server</title>
+<style>
+:root {
+	color-scheme: light dark;
+}
+</style>
+<ul>
+<li><a href="/minimapui">minimapui</a>
+<li><a href="/minimapsrv">minimapsrv</a>
+<li><a href="/minimapext">minimapext</a>
+<li><a href="/codesrv">codesrv</a>
+</ul>
+`
+
 func root(w http.ResponseWriter, r *http.Request) {
-	w.Write([]byte(`
-	<!DOCTYPE html>
-	<meta charset="UTF-8">
-	<title>Code server</title>
-	<style>
-	:root {
-	  color-scheme: light dark;
-	}
-	</style>
-	<ul>
-	<li><a href="/minimapui">minimapui</a>
-	<li><a href="/minimapsrv">minimapsrv</a>
-	<li><a href="/minimapext">minimapext</a>
-	<li><a href="/codesrv">codesrv</a>
-	</ul>
-	`))
+	w.Write([]byte(rootIndex))
 }
 
 type workspaceFolderHandler string

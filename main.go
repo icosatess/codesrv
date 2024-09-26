@@ -21,8 +21,9 @@ type directoryEntryInfo struct {
 }
 
 type directoryListingData struct {
-	Path    string
-	Entries []directoryEntryInfo
+	Path      string
+	ParentDir string
+	Entries   []directoryEntryInfo
 }
 
 const directoryListingTemplate = `
@@ -36,6 +37,7 @@ const directoryListingTemplate = `
 </style>
 <h1>{{.Path}}</h1>
 <ul>
+<li><a href="{{.ParentDir}}">..</a>
 {{range .Entries}}
 <li><a href="{{.FullPath}}">{{.Name}}</a>
 {{end}}
@@ -106,8 +108,9 @@ func serveWorkspaceFolder(w http.ResponseWriter, r *http.Request) {
 			})
 		}
 		if err := t.Execute(w, directoryListingData{
-			Path:    cleanPath,
-			Entries: deis,
+			Path:      cleanPath,
+			ParentDir: path.Dir(cleanPath),
+			Entries:   deis,
 		}); err != nil {
 			panic(err)
 		}

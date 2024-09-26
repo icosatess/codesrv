@@ -46,14 +46,15 @@ func (h workspaceFolderHandler) ServeHTTP(w http.ResponseWriter, r *http.Request
 	var pathComponents []string
 
 	dir, file := path.Split(cleanPath)
+	// This should only happen if the request is for the root path '/'
 	if file != "" {
 		pathComponents = append(pathComponents, file)
 	}
-	for dir != "/"+string(h)+"/" {
+	for dir != "/" {
 		dir, file = path.Split(dir[:len(dir)-1])
 		pathComponents = append(pathComponents, file)
 	}
-	pathComponents = append(pathComponents, string(h), `C:\Users\Icosatess\Source`)
+	pathComponents = append(pathComponents, `C:\Users\Icosatess\Source`)
 	slices.Reverse(pathComponents)
 	fullpath := filepath.Join(pathComponents...)
 
@@ -106,5 +107,7 @@ func main() {
 
 	// TODO: serve as plain text
 	// TODO: add a disallow-list for dotfiles and other stuff viewers shouldn't see
-	log.Fatal(http.ListenAndServe("127.0.0.1:8081", nil))
+	srvAddr := "127.0.0.1:8080"
+	log.Printf("Starting code server at %s", srvAddr)
+	log.Fatal(http.ListenAndServe(srvAddr, nil))
 }

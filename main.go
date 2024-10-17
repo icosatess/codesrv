@@ -58,6 +58,7 @@ const rootIndex = `
 <li><a href="/minimapsrv">minimapsrv</a>
 <li><a href="/minimapext">minimapext</a>
 <li><a href="/codesrv">codesrv</a>
+<li><a href="/chatbot">chatbot</a>
 </ul>
 `
 
@@ -71,6 +72,10 @@ func serveWorkspaceFolder(w http.ResponseWriter, r *http.Request) {
 	var pathComponents []string
 
 	dir, file := path.Split(cleanPath)
+	if file == "secrets.json" {
+		http.Error(w, "Icosatess has disallowed public viewing of this file", http.StatusForbidden)
+		return
+	}
 	// This should only happen if the request is for the root path '/'
 	if file != "" {
 		pathComponents = append(pathComponents, file)
@@ -159,6 +164,7 @@ func main() {
 	http.HandleFunc("/minimapsrv/", serveWorkspaceFolder)
 	http.HandleFunc("/minimapext/", serveWorkspaceFolder)
 	http.HandleFunc("/codesrv/", serveWorkspaceFolder)
+	http.HandleFunc("/chatbot/", serveWorkspaceFolder)
 
 	// TODO: serve as plain text
 	// TODO: add a disallow-list for dotfiles and other stuff viewers shouldn't see

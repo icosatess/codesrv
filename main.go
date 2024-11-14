@@ -10,7 +10,7 @@ import (
 	"path/filepath"
 	"slices"
 
-	"github.com/alecthomas/chroma/v2/formatters"
+	"github.com/alecthomas/chroma/v2/formatters/html"
 	"github.com/alecthomas/chroma/v2/lexers"
 	"github.com/alecthomas/chroma/v2/styles"
 )
@@ -142,16 +142,15 @@ func serveWorkspaceFolder(w http.ResponseWriter, r *http.Request) {
 		if style == nil {
 			style = styles.Fallback
 		}
-		formatter := formatters.Get("html")
-		if formatter == nil {
-			formatter = formatters.Fallback
-		}
+		formatter := html.New(html.WithLineNumbers(true))
 
 		iterator, iteratorErr := lexer.Tokenise(nil, string(text))
 		if iteratorErr != nil {
 			panic(iteratorErr)
 		}
 
+		w.Header().Set("Content-Type", "text/html;charset=UTF-8")
+		// TODO: This returns a document fragment.
 		if err := formatter.Format(w, style, iterator); err != nil {
 			panic(err)
 		}

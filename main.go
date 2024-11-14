@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"html/template"
 	"io"
 	"log"
@@ -41,6 +42,23 @@ const directoryListingTemplate = `
 {{range .Entries}}
 <li><a href="{{.FullPath}}">{{.Name}}</a>
 {{end}}
+</ul>`
+
+type sourceFileData struct {
+	FilePath string
+	Body     template.HTML
+}
+
+const sourceFileTemplate = `
+<!DOCTYPE html>
+<meta charset="UTF-8">
+<title>{{.FilePath}}</title>
+<style>
+body, pre {
+	margin: 0;
+}
+</style>
+{{.Body}}
 </ul>`
 
 const rootIndex = `
@@ -150,10 +168,18 @@ func serveWorkspaceFolder(w http.ResponseWriter, r *http.Request) {
 		}
 
 		w.Header().Set("Content-Type", "text/html;charset=UTF-8")
-		// TODO: This returns a document fragment.
-		if err := formatter.Format(w, style, iterator); err != nil {
+		var buf bytes.Buffer
+		if err := formatter.Format(&buf, style, iterator); err != nil {
 			panic(err)
 		}
+		t, terr := template.New("sourceFileTemplate").Parse(sourceFileTemplate)
+		if terr != nil {
+			panic(terr)
+		}
+		t.Execute(w, sourceFileData{
+			FilePath: cleanPath,
+			Body:     template.HTML(buf.Bytes()),
+		})
 	}
 }
 

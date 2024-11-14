@@ -54,6 +54,10 @@ const sourceFileTemplate = `
 <meta charset="UTF-8">
 <title>{{.FilePath}}</title>
 <style>
+:root {
+	color-scheme: light dark;
+}
+
 body, pre {
 	margin: 0;
 }

@@ -10,6 +10,7 @@ import (
 	"path"
 	"path/filepath"
 	"slices"
+	"strings"
 
 	"github.com/alecthomas/chroma/v2/formatters/html"
 	"github.com/alecthomas/chroma/v2/lexers"
@@ -187,6 +188,47 @@ func serveWorkspaceFolder(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+const frameTemplate = `
+<!DOCTYPE html>
+<meta charset="UTF-8">
+<title>Icosatess</title>
+<style>
+:root {
+	color-scheme: light dark;
+}
+</style>
+
+<frameset cols="20%, 80%">
+<frame src="/sidebar">
+<frame src="{{.ContentPath}}">
+</frameset>
+<noframes>
+no frames content here
+</noframes>
+`
+
+func frameTest(w http.ResponseWriter, r *http.Request) {
+	p := r.URL.Path
+	rest, ok := strings.CutPrefix(p, "/frame")
+	if !ok {
+		panic("couldn't find /frame at start of path")
+	}
+
+	t, terr := template.New("frameTest").Parse(frameTemplate)
+	if terr != nil {
+		panic(terr)
+	}
+	t.Execute(w, struct {
+		ContentPath string
+	}{
+		ContentPath: rest,
+	})
+}
+
+func sidebar(w http.ResponseWriter, r *http.Request) {
+	w.Write([]byte("sidebar goes here"))
+}
+
 func main() {
 	http.HandleFunc("/", root)
 	http.HandleFunc("/minimapui/", serveWorkspaceFolder)
@@ -194,6 +236,8 @@ func main() {
 	http.HandleFunc("/minimapext/", serveWorkspaceFolder)
 	http.HandleFunc("/codesrv/", serveWorkspaceFolder)
 	http.HandleFunc("/chatbot/", serveWorkspaceFolder)
+	http.HandleFunc("/sidebar/", sidebar)
+	http.HandleFunc("/frame/", frameTest)
 
 	// TODO: serve as plain text
 	// TODO: add a disallow-list for dotfiles and other stuff viewers shouldn't see

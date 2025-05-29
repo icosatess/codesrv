@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"embed"
 	"fmt"
 	"html/template"
 	"io"
@@ -19,6 +20,9 @@ import (
 	"github.com/alecthomas/chroma/v2/styles"
 )
 
+//go:embed template
+var tplFS embed.FS
+
 type directoryEntryInfo struct {
 	FullPath string
 	Name     string
@@ -30,65 +34,26 @@ type directoryListingData struct {
 	Entries   []directoryEntryInfo
 }
 
-const directoryListingTemplate = `
-<!DOCTYPE html>
-<meta charset="UTF-8">
-<title>Icosatess</title>
-<style>
-:root {
-	color-scheme: light dark;
-}
-</style>
-<h1>{{.Path}}</h1>
-<ul>
-<li><a href="{{.ParentDir}}">..</a>
-{{range .Entries}}
-<li><a href="{{.FullPath}}">{{.Name}}</a>
-{{end}}
-</ul>`
+var directoryListingTemplate = template.Must(template.ParseFS(tplFS, "template/directory.html"))
 
 type sourceFileData struct {
 	FilePath string
 	Body     template.HTML
 }
 
-const sourceFileTemplate = `
-<!DOCTYPE html>
-<meta charset="UTF-8">
-<title>{{.FilePath}}</title>
-<style>
-:root {
-	color-scheme: light dark;
-}
-
-body, pre {
-	margin: 0;
-}
-</style>
-{{.Body}}
-</ul>`
-
-const rootIndex = `
-<!DOCTYPE html>
-<meta charset="UTF-8">
-<title>Icosatess</title>
-<style>
-:root {
-	color-scheme: light dark;
-}
-</style>
-<h1>Icosatess’s code</h1>
-<ul>
-<li><a href="/minimapui">minimapui</a>
-<li><a href="/minimapsrv">minimapsrv</a>
-<li><a href="/minimapext">minimapext</a>
-<li><a href="/codesrv">codesrv</a>
-<li><a href="/chatbot">chatbot</a>
-</ul>
-`
+var sourceFileTemplate = template.Must(template.ParseFS(tplFS, "template/source.html"))
 
 func root(w http.ResponseWriter, r *http.Request) {
-	w.Write([]byte(rootIndex))
+	rootFile, rootFileErr := tplFS.ReadFile("template/root.html")
+	if rootFileErr != nil {
+		// Treat all errors as if file does not exist.
+		http.Error(w, http.StatusText(http.StatusNotFound), http.StatusNotFound)
+		return
+	}
+	if n, err := w.Write(rootFile); err != nil {
+		log.Printf("failed to fully write root file after %d bytes: %v", n, err)
+		return
+	}
 }
 
 func serveWorkspaceFolder(w http.ResponseWriter, r *http.Request) {
@@ -124,10 +89,6 @@ func serveWorkspaceFolder(w http.ResponseWriter, r *http.Request) {
 		if deserr != nil {
 			panic(deserr)
 		}
-		t, terr := template.New("directoryEntryTemplate").Parse(directoryListingTemplate)
-		if terr != nil {
-			panic(terr)
-		}
 		var deis []directoryEntryInfo
 		for _, de := range des {
 			currentPath := r.URL.Path
@@ -138,7 +99,7 @@ func serveWorkspaceFolder(w http.ResponseWriter, r *http.Request) {
 				Name:     deName,
 			})
 		}
-		if err := t.Execute(w, directoryListingData{
+		if err := directoryListingTemplate.Execute(w, directoryListingData{
 			Path:      cleanPath,
 			ParentDir: path.Dir(cleanPath),
 			Entries:   deis,
@@ -180,35 +141,18 @@ func serveWorkspaceFolder(w http.ResponseWriter, r *http.Request) {
 		if err := formatter.Format(&buf, style, iterator); err != nil {
 			panic(err)
 		}
-		t, terr := template.New("sourceFileTemplate").Parse(sourceFileTemplate)
-		if terr != nil {
-			panic(terr)
-		}
-		t.Execute(w, sourceFileData{
+		sourceFileTemplate.Execute(w, sourceFileData{
 			FilePath: cleanPath,
 			Body:     template.HTML(buf.Bytes()),
 		})
 	}
 }
 
-const frameTemplate = `
-<!DOCTYPE html>
-<meta charset="UTF-8">
-<title>Icosatess</title>
-<style>
-:root {
-	color-scheme: light dark;
+type frameData struct {
+	ContentPath string
 }
-</style>
 
-<frameset cols="20%, 80%">
-<frame src="/sidebar">
-<frame src="{{.ContentPath}}" name="contentpane">
-</frameset>
-<noframes>
-no frames content here
-</noframes>
-`
+var frameTemplate = template.Must(template.ParseFS(tplFS, "template/frame.html"))
 
 func frameTest(w http.ResponseWriter, r *http.Request) {
 	p := r.URL.Path
@@ -217,13 +161,7 @@ func frameTest(w http.ResponseWriter, r *http.Request) {
 		panic("couldn't find /frame at start of path")
 	}
 
-	t, terr := template.New("frameTest").Parse(frameTemplate)
-	if terr != nil {
-		panic(terr)
-	}
-	t.Execute(w, struct {
-		ContentPath string
-	}{
+	frameTemplate.Execute(w, frameData{
 		ContentPath: rest,
 	})
 }

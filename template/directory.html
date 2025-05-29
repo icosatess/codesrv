@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+
+<meta charset="UTF-8">
+<title>Icosatess</title>
+<style>
+:root {
+	color-scheme: light dark;
+}
+</style>
+
+<h1>{{.Path}}</h1>
+
+<ul>
+<li><a href="{{.ParentDir}}">..</a>
+{{range .Entries}}
+<li><a href="{{.FullPath}}">{{.Name}}</a>
+{{end}}
+</ul>

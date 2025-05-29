@@ -1,0 +1,6 @@
+Source code server
+==================
+
+This Go program is a web server that serves HTML content representing the
+directories and files in a set of source code repositories. Source code is
+rendered with syntax highlighting and line numbers.

@@ -69,8 +69,13 @@ func serveWorkspaceFolder(w http.ResponseWriter, r *http.Request) {
 	fullPath := filepath.Join(sourceRoot, relativePath)
 
 	fi, fierr := os.Stat(fullPath)
-	if fierr != nil {
-		panic(fierr)
+	if errors.Is(fierr, fs.ErrNotExist) {
+		http.Error(w, http.StatusText(http.StatusNotFound), http.StatusNotFound)
+		return
+	} else if fierr != nil {
+		log.Printf("got non-not-found error stat-ing destination path %s, returning 404 Not Found: %v", fullPath, fierr)
+		http.Error(w, http.StatusText(http.StatusNotFound), http.StatusNotFound)
+		return
 	}
 
 	if fi.IsDir() {
@@ -83,8 +88,15 @@ func serveWorkspaceFolder(w http.ResponseWriter, r *http.Request) {
 func serveWorkspaceFolderDirectory(w http.ResponseWriter, r *http.Request, cleanPath, fullPath string) {
 	des, deserr := os.ReadDir(fullPath)
 	if deserr != nil {
-		panic(deserr)
+		if len(des) == 0 {
+			log.Printf("got error reading directory %s with no entries, returning 404 Not Found: %v", fullPath, deserr)
+			http.Error(w, http.StatusText(http.StatusNotFound), http.StatusNotFound)
+			return
+		} else {
+			log.Printf("got error reading directory %s with partial entries, continuing: %v", fullPath, deserr)
+		}
 	}
+
 	var deis []directoryEntryInfo
 	for _, de := range des {
 		currentPath := r.URL.Path
@@ -95,12 +107,15 @@ func serveWorkspaceFolderDirectory(w http.ResponseWriter, r *http.Request, clean
 			Name:     deName,
 		})
 	}
+
+	w.Header().Set("Content-Type", "text/html;charset=UTF-8")
 	if err := directoryListingTemplate.Execute(w, directoryListingData{
 		Path:      cleanPath,
 		ParentDir: path.Dir(cleanPath),
 		Entries:   deis,
 	}); err != nil {
-		panic(err)
+		log.Printf("failed to execute directory file template, giving up: %v", err)
+		return
 	}
 }
 

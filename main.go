@@ -45,8 +45,11 @@ var sourceFileTemplate = template.Must(template.ParseFS(tplFS, "template/source.
 
 func root(w http.ResponseWriter, r *http.Request) {
 	rootFile, rootFileErr := tplFS.ReadFile("template/root.html")
-	if rootFileErr != nil {
-		// Treat all errors as if file does not exist.
+	if errors.Is(rootFileErr, fs.ErrNotExist) {
+		http.Error(w, http.StatusText(http.StatusNotFound), http.StatusNotFound)
+		return
+	} else if rootFileErr != nil {
+		log.Printf("got non-not-found error reading root template path from FS, returning 404 Not Found: %v", rootFileErr)
 		http.Error(w, http.StatusText(http.StatusNotFound), http.StatusNotFound)
 		return
 	}

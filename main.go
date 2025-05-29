@@ -12,7 +12,6 @@ import (
 	"os"
 	"path"
 	"path/filepath"
-	"slices"
 	"strings"
 
 	"github.com/alecthomas/chroma/v2/formatters/html"
@@ -22,6 +21,8 @@ import (
 
 //go:embed template
 var tplFS embed.FS
+
+const sourceRoot = `C:\Users\Icosatess\Source`
 
 type directoryEntryInfo struct {
 	FullPath string
@@ -59,25 +60,14 @@ func root(w http.ResponseWriter, r *http.Request) {
 func serveWorkspaceFolder(w http.ResponseWriter, r *http.Request) {
 	cleanPath := path.Clean(r.URL.Path)
 
-	var pathComponents []string
-
-	// TODO: replace all of this with filepath.FromSlash
-	dir, file := path.Split(cleanPath)
-	if file == "secrets.json" {
+	filename := path.Base(cleanPath)
+	if filename == "secrets.json" {
 		http.Error(w, "Icosatess has disallowed public viewing of this file", http.StatusForbidden)
 		return
 	}
-	// This should only happen if the request is for the root path '/'
-	if file != "" {
-		pathComponents = append(pathComponents, file)
-	}
-	for dir != "/" {
-		dir, file = path.Split(dir[:len(dir)-1])
-		pathComponents = append(pathComponents, file)
-	}
-	pathComponents = append(pathComponents, `C:\Users\Icosatess\Source`)
-	slices.Reverse(pathComponents)
-	fullpath := filepath.Join(pathComponents...)
+
+	relativePath := filepath.FromSlash(cleanPath)
+	fullpath := filepath.Join(sourceRoot, relativePath)
 
 	fi, fierr := os.Stat(fullpath)
 	if fierr != nil {

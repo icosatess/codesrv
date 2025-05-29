@@ -67,75 +67,83 @@ func serveWorkspaceFolder(w http.ResponseWriter, r *http.Request) {
 	}
 
 	relativePath := filepath.FromSlash(cleanPath)
-	fullpath := filepath.Join(sourceRoot, relativePath)
+	fullPath := filepath.Join(sourceRoot, relativePath)
 
-	fi, fierr := os.Stat(fullpath)
+	fi, fierr := os.Stat(fullPath)
 	if fierr != nil {
 		panic(fierr)
 	}
 
 	if fi.IsDir() {
-		des, deserr := os.ReadDir(fullpath)
-		if deserr != nil {
-			panic(deserr)
-		}
-		var deis []directoryEntryInfo
-		for _, de := range des {
-			currentPath := r.URL.Path
-			deName := de.Name()
-			deFullPath := path.Join(currentPath, deName)
-			deis = append(deis, directoryEntryInfo{
-				FullPath: deFullPath,
-				Name:     deName,
-			})
-		}
-		if err := directoryListingTemplate.Execute(w, directoryListingData{
-			Path:      cleanPath,
-			ParentDir: path.Dir(cleanPath),
-			Entries:   deis,
-		}); err != nil {
-			panic(err)
-		}
+		serveWorkspaceFolderDirectory(w, r, cleanPath, fullPath)
 	} else {
-		f, ferr := os.Open(fullpath)
-		if ferr != nil {
-			// TODO: handle file not found
-			panic(ferr)
-		}
-		text, textErr := io.ReadAll(f)
-		if textErr != nil {
-			panic(textErr)
-		}
-		if err := f.Close(); err != nil {
-			panic(err)
-		}
+		serveWorkspaceFolderSourceFile(w, cleanPath, fullPath)
+	}
+}
 
-		lexer := lexers.Match(fullpath)
-		if lexer == nil {
-			lexer = lexers.Fallback
-		}
-
-		style := styles.Get("github-dark")
-		if style == nil {
-			style = styles.Fallback
-		}
-		formatter := html.New(html.WithLineNumbers(true))
-
-		iterator, iteratorErr := lexer.Tokenise(nil, string(text))
-		if iteratorErr != nil {
-			panic(iteratorErr)
-		}
-
-		w.Header().Set("Content-Type", "text/html;charset=UTF-8")
-		var buf bytes.Buffer
-		if err := formatter.Format(&buf, style, iterator); err != nil {
-			panic(err)
-		}
-		sourceFileTemplate.Execute(w, sourceFileData{
-			FilePath: cleanPath,
-			Body:     template.HTML(buf.Bytes()),
+func serveWorkspaceFolderDirectory(w http.ResponseWriter, r *http.Request, cleanPath, fullPath string) {
+	des, deserr := os.ReadDir(fullPath)
+	if deserr != nil {
+		panic(deserr)
+	}
+	var deis []directoryEntryInfo
+	for _, de := range des {
+		currentPath := r.URL.Path
+		deName := de.Name()
+		deFullPath := path.Join(currentPath, deName)
+		deis = append(deis, directoryEntryInfo{
+			FullPath: deFullPath,
+			Name:     deName,
 		})
 	}
+	if err := directoryListingTemplate.Execute(w, directoryListingData{
+		Path:      cleanPath,
+		ParentDir: path.Dir(cleanPath),
+		Entries:   deis,
+	}); err != nil {
+		panic(err)
+	}
+}
+
+func serveWorkspaceFolderSourceFile(w http.ResponseWriter, cleanPath, fullPath string) {
+	f, ferr := os.Open(fullPath)
+	if ferr != nil {
+		// TODO: handle file not found
+		panic(ferr)
+	}
+	text, textErr := io.ReadAll(f)
+	if textErr != nil {
+		panic(textErr)
+	}
+	if err := f.Close(); err != nil {
+		panic(err)
+	}
+
+	lexer := lexers.Match(fullPath)
+	if lexer == nil {
+		lexer = lexers.Fallback
+	}
+
+	style := styles.Get("github-dark")
+	if style == nil {
+		style = styles.Fallback
+	}
+	formatter := html.New(html.WithLineNumbers(true))
+
+	iterator, iteratorErr := lexer.Tokenise(nil, string(text))
+	if iteratorErr != nil {
+		panic(iteratorErr)
+	}
+
+	w.Header().Set("Content-Type", "text/html;charset=UTF-8")
+	var buf bytes.Buffer
+	if err := formatter.Format(&buf, style, iterator); err != nil {
+		panic(err)
+	}
+	sourceFileTemplate.Execute(w, sourceFileData{
+		FilePath: cleanPath,
+		Body:     template.HTML(buf.Bytes()),
+	})
 }
 
 type frameData struct {

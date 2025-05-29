@@ -3,8 +3,10 @@ package main
 import (
 	"bytes"
 	"embed"
+	"errors"
 	"html/template"
 	"io"
+	"io/fs"
 	"log"
 	"net/http"
 	"os"
@@ -104,16 +106,20 @@ func serveWorkspaceFolderDirectory(w http.ResponseWriter, r *http.Request, clean
 
 func serveWorkspaceFolderSourceFile(w http.ResponseWriter, cleanPath, fullPath string) {
 	f, ferr := os.Open(fullPath)
-	if ferr != nil {
-		// TODO: handle file not found
-		panic(ferr)
+	if errors.Is(ferr, fs.ErrNotExist) {
+		http.Error(w, http.StatusText(http.StatusNotFound), http.StatusNotFound)
+		return
+	} else if ferr != nil {
+		log.Printf("got non-not-found error opening source file, returning 404 Not Found: %v", ferr)
+		http.Error(w, http.StatusText(http.StatusNotFound), http.StatusNotFound)
+		return
 	}
+	defer f.Close()
 	text, textErr := io.ReadAll(f)
 	if textErr != nil {
-		panic(textErr)
-	}
-	if err := f.Close(); err != nil {
-		panic(err)
+		log.Printf("got error reading source file, returning 404 Not Found: %v", ferr)
+		http.Error(w, http.StatusText(http.StatusNotFound), http.StatusNotFound)
+		return
 	}
 
 	lexer := lexers.Match(fullPath)
@@ -129,18 +135,28 @@ func serveWorkspaceFolderSourceFile(w http.ResponseWriter, cleanPath, fullPath s
 
 	iterator, iteratorErr := lexer.Tokenise(nil, string(text))
 	if iteratorErr != nil {
-		panic(iteratorErr)
+		log.Printf("failed to tokenize source file, returning plain text: %v", iteratorErr)
+		w.Header().Set("Content-Type", "text/plain;charset=UTF-8")
+		w.Write(text)
+		return
+	}
+
+	var buf bytes.Buffer
+	if err := formatter.Format(&buf, style, iterator); err != nil {
+		log.Printf("failed to format source file, returning plain text: %v", err)
+		w.Header().Set("Content-Type", "text/plain;charset=UTF-8")
+		w.Write(text)
+		return
 	}
 
 	w.Header().Set("Content-Type", "text/html;charset=UTF-8")
-	var buf bytes.Buffer
-	if err := formatter.Format(&buf, style, iterator); err != nil {
-		panic(err)
-	}
-	sourceFileTemplate.Execute(w, sourceFileData{
+	if err := sourceFileTemplate.Execute(w, sourceFileData{
 		FilePath: cleanPath,
 		Body:     template.HTML(buf.Bytes()),
-	})
+	}); err != nil {
+		log.Printf("failed to execute source file template, giving up: %v", err)
+		return
+	}
 }
 
 func main() {

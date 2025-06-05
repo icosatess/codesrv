@@ -12,6 +12,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"slices"
 
 	"github.com/alecthomas/chroma/v2/formatters/html"
 	"github.com/alecthomas/chroma/v2/lexers"
@@ -62,10 +63,26 @@ func root(w http.ResponseWriter, r *http.Request) {
 func serveWorkspaceFolder(w http.ResponseWriter, r *http.Request) {
 	cleanPath := path.Clean(r.URL.Path)
 
-	filename := path.Base(cleanPath)
-	if filename == "secrets.json" {
-		http.Error(w, "Icosatess has disallowed public viewing of this file", http.StatusForbidden)
-		return
+	rem := cleanPath
+	for {
+		d, f := path.Split(rem)
+		if f != "" {
+			if slices.Contains(disallowedFilenames, f) {
+				http.Error(w, "Icosatess has disallowed public viewing of this file/folder", http.StatusForbidden)
+				return
+			}
+			rem = d
+			continue
+		}
+
+		if d == "" || d == "/" {
+			// Empty or root path. Allow.
+			break
+		} else {
+			// Remove trailing slash and try again.
+			rem = d[:len(d)-1]
+			continue
+		}
 	}
 
 	relativePath := filepath.FromSlash(cleanPath)
@@ -104,6 +121,9 @@ func serveWorkspaceFolderDirectory(w http.ResponseWriter, r *http.Request, clean
 	for _, de := range des {
 		currentPath := r.URL.Path
 		deName := de.Name()
+		if slices.Contains(disallowedFilenames, deName) {
+			continue
+		}
 		deFullPath := path.Join(currentPath, deName)
 		deis = append(deis, directoryEntryInfo{
 			FullPath: deFullPath,
@@ -187,8 +207,6 @@ func main() {
 	http.HandleFunc("/sidebar/", sidebar)
 	http.HandleFunc("/frame/", frameTest)
 
-	// TODO: serve as plain text
-	// TODO: add a disallow-list for dotfiles and other stuff viewers shouldn't see
 	srvAddr := "127.0.0.1:8080"
 	log.Printf("Starting code server at %s", srvAddr)
 	log.Fatal(http.ListenAndServe(srvAddr, nil))

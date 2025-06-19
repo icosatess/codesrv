@@ -204,8 +204,6 @@ func main() {
 	http.HandleFunc("/minimapext/", serveWorkspaceFolder)
 	http.HandleFunc("/codesrv/", serveWorkspaceFolder)
 	http.HandleFunc("/chatbot/", serveWorkspaceFolder)
-	http.HandleFunc("/sidebar/", sidebar)
-	http.HandleFunc("/frame/", frameTest)
 
 	srvAddr := "127.0.0.1:8080"
 	log.Printf("Starting code server at %s", srvAddr)

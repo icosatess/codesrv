@@ -1,0 +1,2 @@
+$env:CODE_SERVER_ADDRESS = '127.0.0.1:8080'
+go run .

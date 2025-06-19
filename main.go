@@ -205,7 +205,7 @@ func main() {
 	http.HandleFunc("/codesrv/", serveWorkspaceFolder)
 	http.HandleFunc("/chatbot/", serveWorkspaceFolder)
 
-	srvAddr := "127.0.0.1:8080"
+	srvAddr := os.Getenv("CODE_SERVER_ADDRESS")
 	log.Printf("Starting code server at %s", srvAddr)
 	log.Fatal(http.ListenAndServe(srvAddr, nil))
 }

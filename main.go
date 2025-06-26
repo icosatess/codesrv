@@ -14,6 +14,7 @@ import (
 	"path"
 	"path/filepath"
 	"slices"
+	"strings"
 
 	"github.com/alecthomas/chroma/v2/formatters/html"
 	"github.com/alecthomas/chroma/v2/lexers"
@@ -222,6 +223,9 @@ func main() {
 
 	http.HandleFunc("/", root)
 	for k, v := range cfg.WorkspaceFolders {
+		if strings.ContainsRune(k, '/') {
+			log.Fatal("can't use workspace folder containing slash")
+		}
 		http.HandleFunc(path.Join("/", k)+"/", serveWorkspaceFolder(v))
 	}
 

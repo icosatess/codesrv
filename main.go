@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"embed"
+	"encoding/json"
 	"errors"
 	"html/template"
 	"io"
@@ -22,7 +23,7 @@ import (
 //go:embed template
 var tplFS embed.FS
 
-const sourceRoot = `C:\Users\Icosatess\Source`
+// const sourceRoot = `C:\Users\Icosatess\Source`
 
 type directoryEntryInfo struct {
 	FullPath string
@@ -60,48 +61,50 @@ func root(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func serveWorkspaceFolder(w http.ResponseWriter, r *http.Request) {
-	cleanPath := path.Clean(r.URL.Path)
+func serveWorkspaceFolder(rootPath string) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		cleanPath := path.Clean(r.URL.Path)
 
-	rem := cleanPath
-	for {
-		d, f := path.Split(rem)
-		if f != "" {
-			if slices.Contains(disallowedFilenames, f) {
-				http.Error(w, "Icosatess has disallowed public viewing of this file/folder", http.StatusForbidden)
-				return
+		rem := cleanPath
+		for {
+			d, f := path.Split(rem)
+			if f != "" {
+				if slices.Contains(disallowedFilenames, f) {
+					http.Error(w, "Icosatess has disallowed public viewing of this file/folder", http.StatusForbidden)
+					return
+				}
+				rem = d
+				continue
 			}
-			rem = d
-			continue
+
+			if d == "" || d == "/" {
+				// Empty or root path. Allow.
+				break
+			} else {
+				// Remove trailing slash and try again.
+				rem = d[:len(d)-1]
+				continue
+			}
 		}
 
-		if d == "" || d == "/" {
-			// Empty or root path. Allow.
-			break
+		relativePath := filepath.FromSlash(cleanPath)
+		fullPath := filepath.Join(rootPath, relativePath)
+
+		fi, fierr := os.Stat(fullPath)
+		if errors.Is(fierr, fs.ErrNotExist) {
+			http.Error(w, http.StatusText(http.StatusNotFound), http.StatusNotFound)
+			return
+		} else if fierr != nil {
+			log.Printf("got non-not-found error stat-ing destination path %s, returning 404 Not Found: %v", fullPath, fierr)
+			http.Error(w, http.StatusText(http.StatusNotFound), http.StatusNotFound)
+			return
+		}
+
+		if fi.IsDir() {
+			serveWorkspaceFolderDirectory(w, r, cleanPath, fullPath)
 		} else {
-			// Remove trailing slash and try again.
-			rem = d[:len(d)-1]
-			continue
+			serveWorkspaceFolderSourceFile(w, cleanPath, fullPath)
 		}
-	}
-
-	relativePath := filepath.FromSlash(cleanPath)
-	fullPath := filepath.Join(sourceRoot, relativePath)
-
-	fi, fierr := os.Stat(fullPath)
-	if errors.Is(fierr, fs.ErrNotExist) {
-		http.Error(w, http.StatusText(http.StatusNotFound), http.StatusNotFound)
-		return
-	} else if fierr != nil {
-		log.Printf("got non-not-found error stat-ing destination path %s, returning 404 Not Found: %v", fullPath, fierr)
-		http.Error(w, http.StatusText(http.StatusNotFound), http.StatusNotFound)
-		return
-	}
-
-	if fi.IsDir() {
-		serveWorkspaceFolderDirectory(w, r, cleanPath, fullPath)
-	} else {
-		serveWorkspaceFolderSourceFile(w, cleanPath, fullPath)
 	}
 }
 
@@ -197,13 +200,30 @@ func serveWorkspaceFolderSourceFile(w http.ResponseWriter, cleanPath, fullPath s
 	}
 }
 
+type Config struct {
+	WorkspaceFolders map[string]string `json:"workspaceFolders"`
+}
+
 func main() {
+	f, ferr := os.Open("config.json")
+	if ferr != nil {
+		log.Fatal("couldn't open configuration from config.json")
+	}
+
+	bs, bserr := io.ReadAll(f)
+	if bserr != nil {
+		log.Fatal("couldn't read configuration from config.json")
+	}
+
+	var cfg Config
+	if err := json.Unmarshal(bs, &cfg); err != nil {
+		log.Fatal("couldn't parse configuration from config.json")
+	}
+
 	http.HandleFunc("/", root)
-	http.HandleFunc("/minimapui/", serveWorkspaceFolder)
-	http.HandleFunc("/minimapsrv/", serveWorkspaceFolder)
-	http.HandleFunc("/minimapext/", serveWorkspaceFolder)
-	http.HandleFunc("/codesrv/", serveWorkspaceFolder)
-	http.HandleFunc("/chatbot/", serveWorkspaceFolder)
+	for k, v := range cfg.WorkspaceFolders {
+		http.HandleFunc(path.Join("/", k)+"/", serveWorkspaceFolder(v))
+	}
 
 	srvAddr := os.Getenv("CODE_SERVER_ADDRESS")
 	log.Printf("Starting code server at %s", srvAddr)
